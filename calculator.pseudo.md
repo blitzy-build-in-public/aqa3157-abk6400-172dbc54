@@ -29,7 +29,7 @@ No state survives a line of input: these four definitions exist only within one 
 
 ### main
 
-`main` is the read-evaluate-print loop and the only procedure that prints; it holds the `Error: ` prefix once, in `errorPrefix`, adds it to every error value it prints, reports no condition of its own, and returns nothing. The quit test runs before parsing, and the untrimmed line is what `main` hands to `parseExpression`. Each stage's remaining returned values are held in one name — `parseValues` for `parseExpression`, `evaluateValues` for `evaluate` — and `main` reads from that name only what the status convention says is there: the two operands and the operator on `ok`, the error value on `error`. So the numeric result is bound to `result` and passed to `formatResult`, the error value is bound to `errorValue` and printed after the prefix, no operand or result name carries an error value, and no name is read on a path that gives it no value.
+`main` is the read-evaluate-print loop and the only procedure that prints; it holds the `Error: ` prefix once, in `errorPrefix`, adds it to every error value it prints, reports no condition of its own, and returns nothing. The quit test runs before parsing, and the untrimmed line is what `main` hands to `parseExpression`. Each stage's remaining returned values are held in one name — `parseValues` for `parseExpression`, `evaluateValues` for `evaluate` — and read under the status convention set out in the Data definitions; the names `main` binds from them are `operand1`, `operator`, `operand2`, `result` and `errorValue`, with the result passed to `formatResult` and the error value printed after the prefix.
 
 ```
 PROCEDURE main
@@ -208,7 +208,7 @@ Ownership: `parseExpression` owns four messages, `evaluate` owns the fifth (`div
 
 ## Worked examples
 
-Every acceptance row of this document — the eleven inputs listed below, each with the output its own trace states — traced through the stages; the `quit` row traces the loop's exit test instead, because it never reaches the parser.
+Every acceptance row of this document — the eleven inputs listed below, each with the output its own trace states — is traced through the stages; the `quit` row traces the loop's exit test instead, because it never reaches the parser.
 
 - `2 + 3` — tokens `2`, `+`, `3`; `parseExpression` returns status `ok`, operand 1 `2`, operator `+`, operand 2 `3`; `evaluate` applies `+` and returns result `5`; `formatResult` renders `5.0000000000` and strips the trailing zeros and the bare point to `5`; `main` prints `5`.
 - `10 - 4.5` — tokens `10`, `-`, `4.5`; status `ok`, operand 1 `10`, operator `-`, operand 2 `4.5`; `evaluate` applies `-`, result `5.5`; `formatResult` strips `5.5000000000` to `5.5`; `main` prints `5.5`.
