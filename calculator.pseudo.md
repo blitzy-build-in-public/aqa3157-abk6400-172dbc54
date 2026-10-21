@@ -21,7 +21,7 @@ Pipeline and its three boundaries: parsing never computes, evaluation never read
 - `result` — the double-precision value `evaluate` produces and `formatResult` consumes; any value the four operations can produce from two double-precision operands, its only constraint appearing at formatting time.
 - `error value` — why a stage could not produce its ordinary result; the second returned value when the status is `error`. Its message text is complete and final when returned — `empty input`, `expected two operands`, `invalid number '<text>'`, `unknown operator '<text>'` or `division by zero` — so no caller rebuilds or rewrites it. It carries built text rather than a bare code because `unknown operator '%'` and `invalid number 'abc'` quote the offending input.
 
-Status convention: `parseExpression` and `evaluate` return a status as their first value, `ok` or `error`. On `ok` the remaining returned values are the two operands and the operator, or the result; on `error` the remaining value is the error value. `main` branches on the status alone and never inspects message text to decide what to do.
+Status convention: `parseExpression` and `evaluate` return a status as their first value, `ok` or `error`. On `ok` the remaining returned values are the two operands and the operator, or the result; on `error` the remaining value is the error value. `main` holds those remaining returned values in one name per call and reads from it only what the status accounts for, under the names this section gives them — the operands and the operator on `ok`, the error value on `error` — so no operand or result name ever carries an error value and no value is read on a path that does not return it. `main` branches on the status alone and never inspects message text to decide what to do.
 
 No state survives a line of input: these four definitions exist only within one iteration of the loop.
 
@@ -29,10 +29,11 @@ No state survives a line of input: these four definitions exist only within one 
 
 ### main
 
-`main` is the read-evaluate-print loop and the only procedure that prints; it owns the `Error: ` prefix, reports no condition of its own, and returns nothing. The quit test runs before parsing, and the untrimmed line is what `main` hands to `parseExpression`. `parseExpression` returns the status, operand 1, the operator and operand 2 on `ok`, and the status with the error value on `error`; `evaluate` returns the status with the result on `ok`, and the status with the error value on `error`.
+`main` is the read-evaluate-print loop and the only procedure that prints; it holds the `Error: ` prefix once, in `errorPrefix`, adds it to every error value it prints, reports no condition of its own, and returns nothing. The quit test runs before parsing, and the untrimmed line is what `main` hands to `parseExpression`. Each stage's remaining returned values are held in one name — `parseValues` for `parseExpression`, `evaluateValues` for `evaluate` — and `main` reads from that name only what the status convention says is there: the two operands and the operator on `ok`, the error value on `error`. So the numeric result is bound to `result` and passed to `formatResult`, the error value is bound to `errorValue` and printed after the prefix, no operand or result name carries an error value, and no name is read on a path that gives it no value.
 
 ```
 PROCEDURE main
+    errorPrefix := "Error: "
     WHILE true
         PRINT "> "
         lineText := readLine()
@@ -40,14 +41,18 @@ PROCEDURE main
         IF trimmed equals "quit", ignoring case THEN
             RETURN
         END IF
-        status, valueA, valueB, valueC := parseExpression(lineText)
+        status, parseValues := parseExpression(lineText)
         IF status = "error" THEN
-            PRINT "Error: " followed by valueA
+            errorValue := the error value in parseValues
+            PRINT errorPrefix followed by errorValue
         ELSE
-            status, result := evaluate(valueA, valueB, valueC)
+            operand1, operator, operand2 := the two operands and the operator in parseValues
+            status, evaluateValues := evaluate(operand1, operator, operand2)
             IF status = "error" THEN
-                PRINT "Error: " followed by result
+                errorValue := the error value in evaluateValues
+                PRINT errorPrefix followed by errorValue
             ELSE
+                result := evaluateValues
                 PRINT formatResult(result)
             END IF
         END IF
@@ -190,7 +195,7 @@ END PROCEDURE
 | Unknown operator | `5 % 2` | `Error: unknown operator '%'` | The operator-membership check in `parseExpression` |
 | Division by zero | `5 / 0` | `Error: division by zero` | The zero-divisor test in `evaluate` |
 
-The message text is used character for character, including the quoted offending text in `unknown operator '%'` and `invalid number 'abc'`, and `main` adds the `Error: ` prefix in one place rather than the prefix being written into six messages, so a future change to the prefix is a single edit.
+The message text is used character for character, including the quoted offending text in `unknown operator '%'` and `invalid number 'abc'`. The `Error: ` prefix is `main`'s alone: it is held once, in `errorPrefix`, and written before the error value rather than into any message, so no message text carries the prefix and a future change to the prefix is a single edit.
 
 Each case prints its message and returns to the prompt, and no case ends the program.
 
